@@ -1,6 +1,3 @@
 export default function handler(req, res) {
-  res.status(200).json({
-    pong: true,
-    time: new Date().toISOString()
-  });
+  res.status(200).json({ ok: true, ts: Date.now() });
 }

@@ -1,26 +1,64 @@
-import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
+// index.js
+import { Telegraf } from 'telegraf';
+import dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-const app = express();
-const PORT = 3000;
+const BOT_TOKEN = process.env.BOT_TOKEN;
+if (!BOT_TOKEN) {
+  console.error('❌ BOT_TOKEN не задан в .env');
+  process.exit(1);
+}
 
-// Отдаём статические файлы из папки public
-app.use(express.static(path.join(__dirname, "public")));
+// URL твоего мини-приложения (Vercel)
+const MINIAPP_URL = 'https://tg-feedback-full.vercel.app';
 
-// Маршрут для корня
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+const bot = new Telegraf(BOT_TOKEN);
+
+// Меню чата (кнопка под полем ввода)
+bot.telegram.setChatMenuButton(undefined, {
+  type: 'web_app',
+  text: 'Tiger.com Feedback',
+  web_app: { url: MINIAPP_URL },
+}).catch(console.error);
+
+// /start — покажем инлайн-кнопку «Открыть»
+bot.start((ctx) =>
+  ctx.reply('Откройте мини-приложение:', {
+    reply_markup: {
+      inline_keyboard: [[{ text: 'Открыть Tiger.com Feedback', web_app: { url: MINIAPP_URL } }]],
+    },
+  })
+);
+
+// /open — альтернативная команда
+bot.command('open', (ctx) =>
+  ctx.reply('Открыть Tiger.com Feedback:', {
+    reply_markup: {
+      inline_keyboard: [[{ text: 'Открыть', web_app: { url: MINIAPP_URL } }]],
+    },
+  })
+);
+
+// /ping — проверка, что бот живой
+bot.command('ping', (ctx) => ctx.reply('pong 🏓'));
+
+// Обработка данных, которые мини-приложение может прислать назад через WebApp
+bot.on('message', (ctx) => {
+  if (ctx.message?.web_app_data?.data) {
+    try {
+      const payload = JSON.parse(ctx.message.web_app_data.data);
+      return ctx.reply(`✅ Получено из WebApp:\n\`\`\`\n${JSON.stringify(payload, null, 2)}\n\`\`\``, { parse_mode: 'Markdown' });
+    } catch {
+      return ctx.reply(`✅ Получено из WebApp (raw): ${ctx.message.web_app_data.data}`);
+    }
+  }
 });
 
-// API /ping
-app.get("/ping", (req, res) => {
-  res.json({ ok: true, ts: Date.now() });
-});
+bot.launch()
+  .then(() => console.log('🤖 Bot started. Menu button set.'))
+  .catch(console.error);
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
-});
+// Гладкое завершение
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
