@@ -1,0 +1,26 @@
+cat > public/index.html <<'EOF'
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tiger Feedback</title>
+</head>
+<body>
+  <h1>Feedback App работает 🚀</h1>
+  <button id="ping">Проверить API</button>
+  <pre id="out"></pre>
+
+  <script>
+    document.getElementById('ping').onclick = async () => {
+      const res = await fetch("/api/ping");
+      const json = await res.json();
+      document.getElementById('out').textContent = JSON.stringify(json, null, 2);
+    }
+  </script>
+</body>
+</html>
+EOF
+
+node dev.js
+
+

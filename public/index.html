@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tiger Feedback — демо</title>
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#0b0f19;color:#fff;display:grid;place-items:center;height:100vh}
+    .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:24px;max-width:560px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    button{background:#2542e6;color:#000;border:0;padding:12px 16px;border-radius:12px;cursor:pointer;font-weight:700}
+    pre{white-space:pre-wrap;background:rgba(255,255,255,.06);padding:12px;border-radius:12px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Сервер работает ✅</h2>
+    <p>Нажмите кнопку, чтобы проверить <code>/ping</code>.</p>
+    <button id="ping">Проверить /ping</button>
+    <pre id="out"></pre>
+  </div>
+
+  <script>
+    document.getElementById('ping').onclick = async () => {
+      try{
+        const res = await fetch('/ping');
+        const json = await res.json();
+        document.getElementById('out').textContent = JSON.stringify(json, null, 2);
+      }catch(e){
+        document.getElementById('out').textContent = 'Ошибка: ' + e.message;
+      }
+    };
+  </script>
+</body>
+</html>

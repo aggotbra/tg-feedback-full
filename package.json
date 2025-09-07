@@ -1,0 +1,21 @@
+{
+  "name": "tg-feedback-full",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node index.js",
+    "setup": "node scripts/setup.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "vercel": "^37.12.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
