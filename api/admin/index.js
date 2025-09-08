@@ -1,53 +1,59 @@
-import { requireBasicAuth } from "../_auth.js";
 import { query } from "../_db.js";
 
 export default async function handler(req, res) {
-  const auth = requireBasicAuth(req, res);
-  if (!auth) return;
+  const authHeader = req.headers.authorization || "";
+  const [scheme, value] = authHeader.split(" ");
+  let authorized = false;
+  if (scheme === "Basic" && value) {
+    const [user, pass] = Buffer.from(value, "base64").toString().split(":");
+    authorized = (user === process.env.ADMIN_USER && pass === process.env.ADMIN_PASS);
+  }
 
-  try {
-    const { rows } = await query(
-      "select id, text, coalesce(username,'') username, coalesce(product,'') product, coalesce(topic,'') topic, coalesce(jira,'') jira, coalesce(status,'new') status, created_at from suggestions order by created_at desc limit 200"
-    );
+  res.setHeader("content-type", "text/html; charset=utf-8");
 
-    let body = "";
-    for (const r of rows) {
-      body += "<tr>" +
-        "<td>"+r.id+"</td>" +
-        "<td class='text'>"+escapeHtml(r.text)+"</td>" +
-        "<td>"+escapeHtml(r.username)+"</td>" +
-        "<td>"+escapeHtml(r.product)+"</td>" +
-        "<td>"+escapeHtml(r.topic)+"</td>" +
-        "<td>"+escapeHtml(r.jira)+"</td>" +
-        "<td>"+escapeHtml(r.status)+"</td>" +
-        "<td>"+new Date(r.created_at).toISOString().replace('T',' ').slice(0,19)+"</td>" +
-      "</tr>";
-    }
-
-    const html =
-      "<!doctype html><html><head><meta charset='utf-8'><title>Admin · Suggestions</title>" +
-      "<style>body{font-family:system-ui;background:#0b1220;color:#e5e7eb;margin:0;padding:24px}h1{margin:0 0 16px}table{width:100%;border-collapse:collapse;background:#0f172a;border:1px solid #334155;border-radius:8px;overflow:hidden}th,td{border-bottom:1px solid #1f2937;padding:10px 12px;text-align:left;vertical-align:top;font-size:14px}th{background:#111827;color:#cbd5e1}tr:hover{background:#0b1220}td.text{max-width:560px;white-space:pre-wrap;word-wrap:break-word}.toolbar{display:flex;gap:8px;margin:12px 0}input,select{background:#0f172a;border:1px solid #334155;color:#e5e7eb;padding:8px 10px;border-radius:8px;outline:none}button{padding:8px 12px;border:1px solid #334155;background:#111827;color:#fff;border-radius:8px;cursor:pointer}button:hover{opacity:.9}</style>" +
-      "</head><body>" +
-      "<h1>Admin · Suggestions</h1>" +
-      "<div class='toolbar'>" +
-      "<input id='t' placeholder='Text' style='flex:1'/>" +
-      "<input id='u' placeholder='@username (optional)'/>" +
-      "<input id='p' placeholder='product'/>" +
-      "<input id='tp' placeholder='topic'/>" +
-      "<button onclick='create()'>Create</button>" +
-      "</div>" +
-      "<table><thead><tr><th>ID</th><th>Text</th><th>User</th><th>Product</th><th>Topic</th><th>Jira</th><th>Status</th><th>Created</th></tr></thead><tbody>" +
-      body +
-      "</tbody></table>" +
-      "<script>async function create(){const t=document.getElementById('t').value.trim();const u=document.getElementById('u').value.trim();const p=document.getElementById('p').value.trim();const tp=document.getElementById('tp').value.trim();if(!t)return;const r=await fetch('/api/admin/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:t,username:u,product:p,topic:tp})});if(r.ok)location.reload();else alert('Create failed: '+await r.text());}function escapeHtml(s){return s.replace(/[&<>\"']/g,m=>({\"&\":\"&amp;\",\"<\":\"&lt;\",\">\":\"&gt;\",\"\\\"\":\"&quot;\",\"'\":\"&#39;\"}[m]));}</script>" +
-      "</body></html>";
-
-    res.setHeader("content-type","text/html; charset=utf-8");
-    res.status(200).send(html);
-  } catch (e) {
-    console.error("[admin/index]", e);
-    res.status(500).send("Internal Server Error");
+  if (!authorized) {
+    return res.status(200).send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Login</title></head>
+<body style="font-family:sans-serif;background:#0b1220;color:#e5e7eb;display:flex;align-items:center;justify-content:center;height:100vh;">
+  <div style="background:#111827;padding:24px;border-radius:12px;max-width:300px;width:100%;">
+    <h2 style="margin-top:0">Admin login</h2>
+    <input id="u" placeholder="User" style="width:100%;margin-bottom:8px;padding:8px"/>
+    <input id="p" type="password" placeholder="Password" style="width:100%;margin-bottom:12px;padding:8px"/>
+    <button onclick="login()" style="padding:8px 12px;width:100%;">Login</button>
+  </div>
+<script>
+async function login(){
+  const u=document.getElementById('u').value;
+  const p=document.getElementById('p').value;
+  const basic = btoa(u+":"+p);
+  const r = await fetch('/api/admin?auth='+Date.now(), {headers:{Authorization:'Basic '+basic}});
+  if(r.ok){
+    document.open();document.write(await r.text());document.close();
+  }else{
+    alert('Auth failed: '+r.status);
   }
 }
+</script>
+</body></html>`);
+  }
 
-function escapeHtml(s){return String(s).replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+  try {
+    await query("create table if not exists suggestions (id bigserial primary key, text text, created_at timestamptz default now())");
+    const { rows } = await query("select * from suggestions order by created_at desc limit 100");
+    let trs = rows.map(r =>
+      `<tr><td>${r.id}</td><td>${r.text}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`
+    ).join("");
+    return res.status(200).send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Admin</title></head>
+<body style="font-family:sans-serif;background:#0b1220;color:#e5e7eb;">
+  <h1>Suggestions</h1>
+  <table border="1" cellpadding="6" style="border-collapse:collapse;">
+    <tr><th>ID</th><th>Text</th><th>Created</th></tr>
+    ${trs}
+  </table>
+</body></html>`);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).send("Internal error");
+  }
+}
