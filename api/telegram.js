@@ -1,95 +1,111 @@
-import { Telegraf } from 'telegraf';
-import { pool } from '../lib/db.js';
+// api/telegram.js
+import { Telegraf } from "telegraf";
+import { pool } from "../lib/db.js";
 import { createIssue, jiraBrowseUrl } from "../lib/jira.js";
-import { pool } from "../lib/db.js"; // если ещё не подключён
 
-const TOKEN = process.env.BOT_TOKEN;
-const MINIAPP_URL = process.env.MINIAPP_URL || 'https://tg-feedback-full.vercel.app';
+const BOT_TOKEN = process.env.BOT_TOKEN;
+if (!BOT_TOKEN) throw new Error("BOT_TOKEN is not set");
 
-if (!TOKEN) {
-  throw new Error('BOT_TOKEN is not set');
-}
-
-// Инициализация бота (однократно, с реюзом в serverless)
+// один экземпляр бота между инвокациями
 if (!globalThis.__bot) {
-  globalThis.__bot = new Telegraf(TOKEN);
-
+  globalThis.__bot = new Telegraf(BOT_TOKEN, { telegram: { webhookReply: false } });
   const bot = globalThis.__bot;
 
-  // Кнопка в меню чата (видна всем)
-  bot.telegram.setChatMenuButton(undefined, {
-    type: 'web_app',
-    text: 'Tiger.com Feedback',
-    web_app: { url: MINIAPP_URL },
-  }).catch(() => {});
-
-  // /start -> кнопка открыть WebApp
-  bot.start((ctx) => ctx.reply('Откройте мини-приложение:', {
-    reply_markup: {
-      inline_keyboard: [[{ text: 'Открыть Tiger.com Feedback', web_app: { url: MINIAPP_URL } }]]
-    }
-  }));
-
-  // /suggest <текст> -> записать в БД
-  bot.command('suggest', async (ctx) => {
-    const text = ctx.message?.text?.replace(/^\/suggest(@\w+)?\s*/i, '').trim();
-    if (!text) return ctx.reply('Напиши так: /suggest ваше предложение');
-
-    await saveSuggestion(ctx, text);
+  bot.start(async (ctx) => {
+    await ctx.reply("Привет! Пришли идею/предложение так:\n/suggest <текст>");
   });
 
-  // Любое обычное текстовое сообщение — как предложение
-  bot.on('text', async (ctx) => {
-    // не перехватываем команды
-    if (ctx.message?.text?.startsWith('/')) return;
-    await saveSuggestion(ctx, ctx.message.text);
+  // классическая команда — сработает в реальном Telegram (есть entities: bot_command)
+  bot.command("suggest", onSuggest);
+
+  // подстраховка для curl/тестов: если текст начинается с /suggest — тоже вызываем
+  bot.on("text", async (ctx) => {
+    const t = ctx.message?.text || "";
+    if (/^\/suggest(@\S+)?(\s|$)/i.test(t)) return onSuggest(ctx);
+    // а если без команды — трактуем как предложение
+    if (!t.startsWith("/")) return onSuggest(ctx);
   });
+}
 
-  async function saveSuggestion(ctx, text) {
-    const user = ctx.from || {};
-    const user_id = user.id;
-    const username = user.username || null;
+async function onSuggest(ctx) {
+  const user = ctx.from || {};
+  const fullText = ctx.message?.text || "";
+  const text = fullText.replace(/^\/suggest(@\S+)?\s*/i, "").trim() || fullText.trim();
 
-    // Пока product/topic не выбираются из чата — ставим дефолты.
-    const product = 'Tiger.com macOS';
-    const topic   = 'График';
+  if (!text) {
+    return ctx.reply("Напиши так: `/suggest твоя идея`", { parse_mode: "Markdown" });
+  }
 
-    try {
-      const q = `
-        INSERT INTO suggestions (user_id, username, product, topic, text)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, created_at
-      `;
-      const { rows } = await pool.query(q, [user_id, username, product, topic, text]);
-      const s = rows[0];
-      await ctx.reply(`✅ Предложение сохранено (id: ${s.id}). Спасибо!`);
-    } catch (e) {
-      console.error('DB insert error:', e);
-      await ctx.reply('❌ Не удалось сохранить. Попробуй ещё раз позже.');
-    }
+  const user_id = user.id;
+  const username = user.username || null;
+  const product = "Tiger.com macOS";
+  const topic   = "График";
+
+  console.log("[TG] suggest from", { user_id, username, text });
+
+  // 1) вставка в PG
+  let inserted;
+  try {
+    const q = `
+      INSERT INTO suggestions (user_id, username, product, topic, text)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, created_at
+    `;
+    const { rows } = await pool.query(q, [user_id, username, product, topic, text]);
+    inserted = rows[0];
+    console.log("[DB] inserted suggestion", inserted);
+  } catch (e) {
+    console.error("[DB] insert error:", e);
+    return ctx.reply("❌ Не удалось сохранить. Попробуй ещё раз позже.");
+  }
+
+  // 2) создаём тикет в Jira
+  let jira = null;
+  try {
+    jira = await createIssue({ text, username, product, topic }); // { id, key }
+    console.log("[Jira] created", jira);
+  } catch (e) {
+    console.error("[Jira] create error:", e);
+  }
+
+  // 3) апдейт PG jira_* полями
+  try {
+    await pool.query(
+      `UPDATE suggestions
+       SET jira_key = $2, jira_id = $3, jira_status = COALESCE(jira_status, 'created')
+       WHERE id = $1`,
+      [inserted.id, jira?.key || null, jira?.id || null]
+    );
+    console.log("[DB] updated with jira", { id: inserted.id, key: jira?.key, jira_id: jira?.id });
+  } catch (e) {
+    console.error("[DB] update jira fields error:", e);
+  }
+
+  // 4) ответ
+  if (jira?.key) {
+    await ctx.reply(
+      `✅ Идея (#${inserted.id}) сохранена.\nСоздан тикет *${jira.key}* → ${jiraBrowseUrl(jira.key)}`,
+      { parse_mode: "Markdown" }
+    );
+  } else {
+    await ctx.reply(`✅ Идея (#${inserted.id}) сохранена.\n⚠️ Тикет в Jira не создался.`);
   }
 }
 
 const bot = globalThis.__bot;
 
-// Вебхук-эндпоинт: /api/telegram
 export default async function handler(req, res) {
-  // Читаем сырое тело и прокидываем апдейт в Telegraf
-  let raw = '';
-  for await (const chunk of req) raw += chunk;
-
-  let update;
   try {
-    update = JSON.parse(raw || '{}');
-  } catch {
-    return res.status(400).json({ ok: false, error: 'invalid_json' });
-  }
-
-  try {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const update = raw ? JSON.parse(raw) : {};
+    console.log("[HTTP] update", JSON.stringify(update));
     await bot.handleUpdate(update);
-    return res.status(200).end();
+    res.statusCode = 200;
+    res.end();
   } catch (e) {
-    console.error('webhook error:', e);
-    return res.status(200).end();
+    console.error("[HTTP] webhook error:", e);
+    res.statusCode = 200;
+    res.end();
   }
 }
