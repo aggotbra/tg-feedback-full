@@ -1,5 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { pool } from '../lib/db.js';
+import { createIssue, jiraBrowseUrl } from "../lib/jira.js";
+import { pool } from "../lib/db.js"; // если ещё не подключён
 
 const TOKEN = process.env.BOT_TOKEN;
 const MINIAPP_URL = process.env.MINIAPP_URL || 'https://tg-feedback-full.vercel.app';
