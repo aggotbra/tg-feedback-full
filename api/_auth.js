@@ -1,15 +1,21 @@
-const b64 = (s) => Buffer.from(s).toString("base64");
-
-export default function requireAdmin(req, res) {
+export function requireBasicAuth(req, res) {
   const user = process.env.ADMIN_USER || "";
   const pass = process.env.ADMIN_PASS || "";
-  const expected = "Basic " + b64(`${user}:${pass}`);
-  const got = req.headers.authorization || "";
-
-  if (!user || !pass || got !== expected) {
+  if (!user || !pass) return { name: "no-auth-set" };
+  const h = req.headers.authorization || "";
+  if (!h.startsWith("Basic ")) {
     res.setHeader("WWW-Authenticate", 'Basic realm="admin", charset="UTF-8"');
-    res.status(401).end("Unauthorized");
-    return false;
+    res.status(401).send("Auth required");
+    return null;
   }
-  return true;
+  const decoded = Buffer.from(h.slice(6), "base64").toString("utf8");
+  const idx = decoded.indexOf(":");
+  const name = idx >= 0 ? decoded.slice(0, idx) : decoded;
+  const pwd = idx >= 0 ? decoded.slice(idx + 1) : "";
+  if (name !== user || pwd !== pass) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="admin", charset="UTF-8"');
+    res.status(401).send("Auth required");
+    return null;
+  }
+  return { name };
 }
