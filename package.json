@@ -20,5 +20,21 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "description": "",
+  "main": "bot.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aggotbra/tg-feedback-full.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aggotbra/tg-feedback-full/issues"
+  },
+  "homepage": "https://github.com/aggotbra/tg-feedback-full#readme"
 }
