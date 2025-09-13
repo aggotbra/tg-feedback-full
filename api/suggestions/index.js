@@ -10,6 +10,8 @@ export default async function handler(req, res) {
     await query("alter table suggestions add column if not exists topic text");
     await query("alter table suggestions add column if not exists jira text");
     await query("alter table suggestions add column if not exists status text default 'new'");
+    await query("alter table suggestions add column if not exists user_id bigint");
+    await query("alter table suggestions alter column user_id drop not null");
 
     const body = await readJson(req);
     const { text, username=null, role=null, product=null, topic=null } = body || {};
