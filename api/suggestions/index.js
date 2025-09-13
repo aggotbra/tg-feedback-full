@@ -1,30 +1,19 @@
 import { query } from "../_db.js";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("allow", "POST");
-    return res.status(404).send("Not Found");
-  }
+  if (req.method !== "POST") return res.status(404).send("Not Found");
   try {
-    await query(
-      "create table if not exists suggestions (" +
-      "id bigserial primary key," +
-      "text text not null," +
-      "username text," +
-      "role text," +
-      "product text," +
-      "topic text," +
-      "jira text," +
-      "status text default 'new'," +
-      "created_at timestamptz default now()" +
-      ")"
-    );
+    await query("create table if not exists suggestions (id bigserial primary key, text text not null, created_at timestamptz default now())");
+    await query("alter table suggestions add column if not exists username text");
+    await query("alter table suggestions add column if not exists role text");
+    await query("alter table suggestions add column if not exists product text");
+    await query("alter table suggestions add column if not exists topic text");
+    await query("alter table suggestions add column if not exists jira text");
+    await query("alter table suggestions add column if not exists status text default 'new'");
 
     const body = await readJson(req);
     const { text, username=null, role=null, product=null, topic=null } = body || {};
-    if (!text || typeof text !== "string" || !text.trim()) {
-      return res.status(400).send("Missing text");
-    }
+    if (!text || typeof text !== "string" || !text.trim()) return res.status(400).send("Missing text");
 
     const ins = await query(
       "insert into suggestions(text, username, role, product, topic, status) values ($1,$2,$3,$4,$5,'saved') returning id, created_at",
