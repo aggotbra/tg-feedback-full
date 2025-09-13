@@ -1,105 +1,76 @@
 export default async function handler(req, res) {
-  const html = `<!doctype html>
-<html lang="ru"><head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Tiger.com Feedback</title>
-<style>
-:root{--bg:#0b1220;--card:#0f172a;--muted:#94a3b8;--text:#e5e7eb;--accent:#2563eb;--accent-2:#1d4ed8;--chip:#111827;--chip-on:#1e293b}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"}
-.container{max-width:900px;margin:40px auto;padding:0 16px}
-.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.badge{font-size:12px;padding:6px 10px;border-radius:999px;background:var(--chip);border:1px solid #334155;color:#cbd5e1}
-.card{background:var(--card);border:1px solid #334155;border-radius:16px;padding:18px 18px 20px;box-shadow:0 14px 40px rgba(0,0,0,.25)}
-h1{font-size:20px;margin:0 0 6px}
-.muted{color:var(--muted);font-size:14px}
-#wizard{margin-top:10px}
-.btns{display:flex;gap:10px;margin-top:16px}
-.btn{background:var(--accent);border:1px solid #3b82f6;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
-.btn:hover{background:var(--accent-2)}
-.btn.secondary{background:#111827;border:1px solid #334155;color:#fff}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.chip{padding:8px 12px;border-radius:999px;background:var(--chip);border:1px solid #334155;cursor:pointer}
-.chip.sel{background:var(--chip-on);border-color:#3b82f6}
-textarea{width:100%;min-height:140px;margin-top:10px;background:#0b1220;border:1px solid #334155;color:var(--text);border-radius:12px;padding:12px;resize:vertical}
-.links{margin-top:16px}
-#dots{display:flex;gap:6px;margin-bottom:12px}
-.dot{width:7px;height:7px;border-radius:999px;background:#1f2937;border:1px solid #334155}
-.dot.on{background:#60a5fa;border-color:#60a5fa}
-</style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div>
-        <div id="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-        <h1>Tiger.com Feedback</h1>
-        <div class="muted">Поделитесь предложением по продукту</div>
+  const html = `<!doctype html><html lang="ru"><meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Tiger.com Feedback</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b1220;color:#e7ecf3;margin:0;padding:32px}
+    .card{max-width:760px;margin:0 auto;background:#111a2b;border:1px solid #20304d;border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    h1{margin:0 0 2px;font-size:24px}
+    .muted{color:#98a4b3}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+    .chip{padding:8px 12px;border:1px solid #2a3d63;border-radius:999px;cursor:pointer}
+    .chip.sel{background:#1e2b47}
+    textarea, input[type=text]{width:100%;background:#0c1527;border:1px solid #24365a;color:#e7ecf3;border-radius:12px;padding:12px;font-size:15px}
+    textarea{min-height:140px;resize:vertical}
+    .bar{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+    button{background:#2563eb;border:none;color:#fff;border-radius:12px;padding:10px 16px;font-weight:600;cursor:pointer}
+    button.secondary{background:#1f2a44}
+    .steps{display:flex;gap:6px;margin-bottom:16px}
+    .dot{width:8px;height:8px;border-radius:999px;background:#27385a}
+    .dot.on{background:#5b7bd6}
+    .badge{display:inline-flex;gap:8px;align-items:center;border:1px solid #2a3d63;border-radius:999px;padding:6px 10px;color:#98a4b3}
+    a{color:#7aa2ff}
+  </style>
+  <div class="card">
+    <div class="bar"><div><h1>Tiger.com Feedback</h1><div class="muted">Поделитесь предложением по продукту</div></div><div class="badge"><span id="roleBadge">Пользователь</span></div></div>
+    <div class="steps" id="dots"><div class="dot on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+
+    <section id="s1">
+      <div class="muted">Кто вы?</div>
+      <div class="row" id="who">
+        <div class="chip" data-v="user">Пользователь</div>
+        <div class="chip" data-v="admin">Админ</div>
       </div>
-      <div id="roleBadge" class="badge">Гость</div>
-    </div>
+      <div class="bar"><span></span><button id="next1">Далее</button></div>
+    </section>
 
-    <div class="card" id="wizard">
-      <section id="s1">
-        <div class="muted">Кто вы?</div>
-        <div id="who" class="chips">
-          <div class="chip" data-v="user">Вы пользователь?</div>
-          <div class="chip" data-v="admin">Вы админ?</div>
-        </div>
-        <div class="btns">
-          <button class="btn" id="next1">Далее</button>
-        </div>
-      </section>
+    <section id="s2" hidden>
+      <div class="muted">Какой продукт?</div>
+      <div class="row" id="product">
+        <div class="chip" data-v="Tiger.com Windows">Tiger.com Windows</div>
+        <div class="chip" data-v="Tiger.com Broker">Tiger.com Broker</div>
+      </div>
+      <div class="bar"><button class="secondary" id="back2">Назад</button><button id="next2">Далее</button></div>
+    </section>
 
-      <section id="s2" hidden>
-        <div class="muted">Выберите продукт</div>
-        <div id="product" class="chips">
-          <div class="chip" data-v="Tiger.com Windows">Tiger.com Windows</div>
-          <div class="chip" data-v="Tiger.com macOS">Tiger.com macOS</div>
-          <div class="chip" data-v="Tiger.com Broker">Tiger.com Broker</div>
-        </div>
-        <div class="btns">
-          <button class="btn secondary" id="back2">Назад</button>
-          <button class="btn" id="next2">Далее</button>
-        </div>
-      </section>
+    <section id="s3" hidden>
+      <div class="muted">Тема</div>
+      <div class="row" id="topic">
+        <div class="chip" data-v="Подключения">Подключения</div>
+        <div class="chip" data-v="Стайки">Стайки</div>
+        <div class="chip" data-v="Прочее">Прочее</div>
+      </div>
+      <div class="bar"><button class="secondary" id="back3">Назад</button><button id="next3">Далее</button></div>
+    </section>
 
-      <section id="s3" hidden>
-        <div class="muted">Выберите тему</div>
-        <div id="topic" class="chips">
-          <div class="chip" data-v="Сделки">Сделки</div>
-          <div class="chip" data-v="График">График</div>
-          <div class="chip" data-v="Котировки">Котировки</div>
-          <div class="chip" data-v="Подключения">Подключения</div>
-          <div class="chip" data-v="Кастомизация">Кастомизация</div>
-          <div class="chip" data-v="Индикаторы">Индикаторы</div>
-          <div class="chip" data-v="Графические объекты">Графические объекты</div>
-          <div class="chip" data-v="Другое">Другое</div>
-        </div>
-        <div class="btns">
-          <button class="btn secondary" id="back3">Назад</button>
-          <button class="btn" id="next3">Далее</button>
-        </div>
-      </section>
+    <section id="s4" hidden>
+      <div class="muted">Короткое название (до 120 символов)</div>
+      <input type="text" id="title" placeholder="Например: Быстрый поиск по заявкам" maxlength="120"/>
+      <div class="bar"><button class="secondary" id="back4">Назад</button><button id="next4">Далее</button></div>
+    </section>
 
-      <section id="s4" hidden>
-        <div class="muted">Опишите ваше предложение</div>
-        <label class="muted">Текст предложения</label>
-        <textarea id="text" placeholder="Опишите улучшение…"></textarea>
-        <div class="btns">
-          <button class="btn secondary" id="back4">Назад</button>
-          <button class="btn" id="send">Отправить</button>
-        </div>
-        <div class="links muted">Админка: <a href="/api/admin">/api/admin</a> · Ping: <a href="/api/ping">/api/ping</a></div>
-      </section>
-    </div>
+    <section id="s5" hidden>
+      <div class="muted">Содержание предложения</div>
+      <textarea id="text" placeholder="Опишите проблему/идею, ожидаемое поведение и пользу"></textarea>
+      <div class="bar"><button class="secondary" id="back5">Назад</button><button id="send">Отправить предложение</button></div>
+      <div class="muted" style="margin-top:12px">Админка: <a href="/api/admin">/api/admin</a> · Пинг: <a href="/api/ping">/api/ping</a></div>
+    </section>
   </div>
 
 <script>
   const dots=[...document.querySelectorAll('#dots .dot')];
-  const show=i=>{['s1','s2','s3','s4'].forEach((id,idx)=>{document.getElementById(id).hidden=idx!==i;dots[idx].classList.toggle('on',idx<=i)});step=i};
-  const select=(id)=>{const box=document.getElementById(id);box.onclick=e=>{if(e.target.classList.contains('chip')){[...box.children].forEach(b=>b.classList.remove('sel'));e.target.classList.add('sel');vals[id]=e.target.dataset.v; if(id==='who') document.getElementById('roleBadge').textContent = (vals[id]==='admin'?'Админ':'Пользователь');}}};
+  const show=i=>{['s1','s2','s3','s4','s5'].forEach((id,idx)=>{document.getElementById(id).hidden=idx!==i;dots[idx].classList.toggle('on',idx<=i)});step=i};
+  const select=(id)=>{const box=document.getElementById(id);box.onclick=e=>{if(e.target.classList.contains('chip')){[...box.children].forEach(b=>b.classList.remove('sel'));e.target.classList.add('sel');vals[id]=e.target.dataset.v; if(id==='who') document.getElementById('roleBadge').textContent=(vals[id]==='admin'?'Админ':'Пользователь');}}};
   let step=0, vals={};
   select('who');select('product');select('topic');
   document.getElementById('next1').onclick=()=>show(1);
@@ -108,13 +79,23 @@ textarea{width:100%;min-height:140px;margin-top:10px;background:#0b1220;border:1
   document.getElementById('back3').onclick=()=>show(1);
   document.getElementById('next3').onclick=()=>show(3);
   document.getElementById('back4').onclick=()=>show(2);
+  document.getElementById('next4').onclick=()=>show(4);
+  document.getElementById('back5').onclick=()=>show(3);
   document.getElementById('send').onclick=async()=>{
-    const payload={role:vals.who||'user',product:vals.product||null,topic:vals.topic||null,text:document.getElementById('text').value.trim()};
+    const payload={
+      title:document.getElementById('title').value.trim(),
+      text:document.getElementById('text').value.trim(),
+      role:vals.who||'user',
+      product:vals.product||null,
+      topic:vals.topic||null
+    };
+    if(!payload.title){alert('Введите короткое название');return}
+    if(!payload.text){alert('Опишите предложение');return}
     try{
       const r=await fetch('/api/suggestions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
-      if(r.ok){alert('Спасибо! Отправлено.');location.reload()}
+      if(r.ok){const j=await r.json(); alert('Спасибо! Создано #' + j.id + (j.jiraUrl? '\\nВ Jira: '+j.jiraUrl : '')); location.reload();}
       else{alert('Ошибка: '+r.status+' '+await r.text())}
-    }catch{alert('Сеть недоступна')}
+    }catch(e){alert('Сеть недоступна')}
   };
   show(0);
 </script>

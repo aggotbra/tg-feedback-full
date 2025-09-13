@@ -4,31 +4,28 @@ import { createIssue, jiraBrowseUrl } from "../../lib/jira.js";
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(404).send("Not Found");
   try {
-    await query("create table if not exists suggestions (id bigserial primary key, text text not null, created_at timestamptz default now())");
-    await query("alter table suggestions add column if not exists username text");
-    await query("alter table suggestions add column if not exists role text");
-    await query("alter table suggestions add column if not exists product text");
-    await query("alter table suggestions add column if not exists topic text");
-    await query("alter table suggestions add column if not exists jira text");
-    await query("alter table suggestions add column if not exists status text default 'new'");
+    await query("create table if not exists suggestions (id bigserial primary key, title text, text text not null, username text, role text, product text, topic text, jira text, status text default 'new', created_at timestamptz default now())");
+    await query("alter table suggestions add column if not exists user_id bigint");
+    await query("alter table suggestions alter column user_id drop not null");
 
     const body = await readJson(req);
-    const { text, username=null, role=null, product=null, topic=null } = body || {};
-    if (!text || typeof text !== "string" || !text.trim()) return res.status(400).send("Missing text");
+    const { title=null, text, username=null, role=null, product=null, topic=null } = body || {};
+    if (!title || typeof title !== "string" || !title.trim()) return res.status(400).send("Missing title");
+    if (!text  || typeof text  !== "string" || !text.trim())  return res.status(400).send("Missing text");
 
     const ins = await query(
-      "insert into suggestions(text, username, role, product, topic, status) values ($1,$2,$3,$4,$5,'queued') returning id, created_at",
-      [text.trim(), username, role, product, topic]
+      "insert into suggestions(title, text, username, role, product, topic, status) values ($1,$2,$3,$4,$5,$6,'queued') returning id, created_at",
+      [title.trim(), text.trim(), username, role, product, topic]
     );
     const id = ins.rows[0].id;
 
-    let jiraKey = null, jiraUrl = null, jiraError = null;
-    try {
-      const issue = await createIssue({ text, role, product, topic, username });
+    let jiraKey=null, jiraUrl=null, jiraError=null;
+    try{
+      const issue = await createIssue({ title, text, role, product, topic, username });
       jiraKey = issue.key;
       jiraUrl = jiraBrowseUrl(jiraKey);
       await query("update suggestions set jira=$1, status='sent' where id=$2", [jiraKey, id]);
-    } catch (e) {
+    }catch(e){
       jiraError = String(e.message || e);
       await query("update suggestions set status='db_ok_jira_fail' where id=$1", [id]);
     }
