@@ -1,6 +1,10 @@
 {
   "version": 2,
-  "builds": [{ "src": "api/**/*.js", "use": "@vercel/node" }],
+  "builds": [
+    { "src": "api/root/index.js", "use": "@vercel/node" },
+    { "src": "api/ping/index.js", "use": "@vercel/node" },
+    { "src": "api/suggestions/index.js", "use": "@vercel/node" }
+  ],
   "routes": [
     { "src": "^/api/(.*)$", "dest": "/api/$1" },
     { "src": "^/(?!api/).*", "dest": "/api/root" }
